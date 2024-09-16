@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #question-number {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+        #question {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        #answers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        button {
+            padding: 10px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #next-btn-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        #next-btn {
+            display: none;
+        }
+        #timer {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+        #result {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        #final-score {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #4CAF50;
+        }
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            font-size: 36px;
+            font-weight: bold;
+            color: #4CAF50;
+            display: none;
+        }
+        @media (max-width: 480px) {
+            #answers {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Trivia Game</h1>
+        <div id="timer">Time left: 150</div>
+        <div id="question-number"></div>
+        <div id="question"></div>
+        <div id="answers"></div>
+        <div id="next-btn-container">
+            <button id="next-btn">Next Question</button>
+        </div>
+        <div id="result"></div>
+        <div id="final-score"></div>
+        <div id="game-over">Game Over!</div>
+    </div>
+
+    <script src="TriviaGame.js"></script>
+    <script>
+        const game = new TriviaGame();
+        let timer;
+
+        // DOM elements
+        const questionNumberEl = document.getElementById('question-number');
+        const questionEl = document.getElementById('question');
+        const answersEl = document.getElementById('answers');
+        const nextBtn = document.getElementById('next-btn');
+        const timerEl = document.getElementById('timer');
+        const resultEl = document.getElementById('result');
+        const finalScoreEl = document.getElementById('final-score');
+        const gameOverEl = document.getElementById('game-over');
+
+        async function startGame() {
+            await game.fetchQuestions();
+            displayQuestion();
+            startTimer();
+        }
+
+        function displayQuestion() {
+            const question = game.getCurrentQuestion();
+            questionNumberEl.textContent = `Question ${game.currentQuestionIndex + 1} of ${game.questions.length}`;
+            questionEl.innerHTML = decodeHTML(question.question);
+            
+            const answers = [...question.incorrect_answers, question.correct_answer];
+            shuffleArray(answers);
+            
+            answersEl.innerHTML = '';
+            answers.forEach(answer => {
+                const button = document.createElement('button');
+                button.innerHTML = decodeHTML(answer);
+                button.addEventListener('click', () => handleAnswer(answer));
+                answersEl.appendChild(button);
+            });
+
+            nextBtn.style.display = 'none';
+            resultEl.textContent = '';
+        }
+
+        function handleAnswer(selectedAnswer) {
+            const isCorrect = game.checkAnswer(selectedAnswer);
+            
+            resultEl.textContent = isCorrect ? 'Correct!' : 'Wrong!';
+            resultEl.style.color = isCorrect ? 'green' : 'red';
+            
+            Array.from(answersEl.children).forEach(button => {
+                button.disabled = true;
+                if (button.innerHTML === decodeHTML(game.getCurrentQuestion().correct_answer)) {
+                    button.style.backgroundColor = 'green';
+                } else if (button.innerHTML === decodeHTML(selectedAnswer) && !isCorrect) {
+                    button.style.backgroundColor = 'red';
+                }
+            });
+
+            if (game.currentQuestionIndex < game.questions.length - 1) {
+                nextBtn.style.display = 'block';
+            } else {
+                endGame();
+            }
+        }
+
+        function startTimer() {
+            updateTimerDisplay();
+            timer = setInterval(() => {
+                game.decrementTimer();
+                updateTimerDisplay();
+                if (game.isGameOver()) {
+                    clearInterval(timer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            timerEl.textContent = `Time left: ${game.timeLeft}`;
+        }
+
+        function endGame() {
+            clearInterval(timer);
+            answersEl.innerHTML = '';
+            nextBtn.style.display = 'none';
+            timerEl.style.display = 'none';
+            questionNumberEl.style.display = 'none';
+            questionEl.style.display = 'none';
+            resultEl.style.display = 'none';
+            gameOverEl.style.display = 'flex';
+            finalScoreEl.style.display = 'block';
+            finalScoreEl.textContent = game.getFinalScore();
+        }
+
+        // Utility functions
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function decodeHTML(html) {
+            var txt = document.createElement('textarea');
+            txt.innerHTML = html;
+            return txt.value;
+        }
+
+        // Event listeners
+        nextBtn.addEventListener('click', () => {
+            game.nextQuestion();
+            displayQuestion();
+        });
+
+        // Start the game
+        startGame();
+    </script>
+</body>
+</html>
